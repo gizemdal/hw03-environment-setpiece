@@ -1,5 +1,6 @@
 var CameraControls = require('3d-view-controls');
 import {vec3, mat4} from 'gl-matrix';
+import {rotateX, rotateY} from 'gl-vec3'
 
 class Camera {
   controls: any;
@@ -26,6 +27,18 @@ class Camera {
   setAspectRatio(aspectRatio: number) {
     this.aspectRatio = aspectRatio;
   }
+
+  /*setTarget(target: vec3) {
+    this.controls.center = target;
+  }
+
+  rotateTargetRight(degree: number) {
+    this.controls.center = rotateX(this.controls.center, this.controls.center, this.controls.eye, degree);
+  }
+
+  rotateTargetUp(degree: number) {
+    this.controls.center = rotateY(this.controls.center, this.controls.center, this.controls.eye, degree);
+  }*/
 
   updateProjectionMatrix() {
     mat4.perspective(this.projectionMatrix, this.fovy, this.aspectRatio, this.near, this.far);

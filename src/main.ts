@@ -15,25 +15,55 @@ const controls = {
 };
 
 let square: Square;
+let wPressed: boolean;
+let aPressed: boolean;
+let sPressed: boolean;
+let dPressed: boolean;
 let time: number = 0;
 
 function loadScene() {
   square = new Square(vec3.fromValues(0, 0, 0));
   square.create();
   // time = 0;
+  wPressed = false;
+  aPressed = false;
+  sPressed = false;
+  dPressed = false;
 }
 
 function main() {
   window.addEventListener('keypress', function (e) {
     // console.log(e.key);
     switch(e.key) {
-      // Use this if you wish
+      case 'w':
+      wPressed = true;
+      break;
+      case 'a':
+      aPressed = true;
+      break;
+      case 's':
+      sPressed = true;
+      break;
+      case 'd':
+      dPressed = true;
+      break;
     }
   }, false);
 
   window.addEventListener('keyup', function (e) {
     switch(e.key) {
-      // Use this if you wish
+      case 'w':
+      wPressed = false;
+      break;
+      case 'a':
+      aPressed = false;
+      break;
+      case 's':
+      sPressed = false;
+      break;
+      case 'd':
+      dPressed = false;
+      break;
     }
   }, false);
 
@@ -74,6 +104,18 @@ function main() {
 
   function processKeyPresses() {
     // Use this if you wish
+    if(wPressed) {
+      
+    }
+    if(aPressed) {
+      
+    }
+    if(sPressed) {
+   
+    }
+    if(dPressed) {
+      
+    }
   }
 
   // This function will be called every frame

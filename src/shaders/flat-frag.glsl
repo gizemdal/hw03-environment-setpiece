@@ -3,7 +3,7 @@ precision highp float;
 
 uniform vec3 u_Eye, u_Ref, u_Up;
 uniform vec2 u_Dimensions;
-uniform float u_Time;
+uniform float u_Time, u_AO, u_DayTime;
 
 in vec2 fs_Pos;
 out vec4 out_Col;
@@ -11,29 +11,18 @@ out vec4 out_Col;
 vec3 seed = vec3(0.1, 0.05, 0.49);
 
 struct roomData {
-	bool isWall; // did we hit a wall?
-	bool isFloor; // did we hit the floor?
-	bool isCeiling; // did the hit the ceiling?
-	bool isBed; // did we hit the bed?
-	bool isNightStand; // did we hit the nightstand?
-	bool isLamp; // did we hit the lamp?
-	bool isCurtain; // did we hit a curtain?
-	bool isMoon; // did we hit the moon?
 	float walls; // walls
 	float floor; // floor
 	float ceiling; // ceiling
-	float carpet; // carpet
 	float picture1; // picture on the wall 1
 	float picture2; // picture on the wall 2
-	float leftCurtain; // left curtain
-	float rightCurtain; // right curtain
 	float nightstand; // nightstand
 	vec3 lamp; // lamp
+	vec3 chair;
 	float bedFrame; // the bed frame
 	float mattress; // bed mattress
 	float pillow; // pillow on the bed
 	vec3 moon; // the moon outside
-	vec3 center;
 
 	vec3 finalPos;
 	int objectID;
@@ -51,6 +40,18 @@ float random (in vec2 st) {
     return fract(sin(dot(st.xy,
                          vec2(12.9898,78.233)))
                 * 43758.5453123);
+}
+
+float random1( vec2 p , vec2 seed) {
+  return fract(sin(dot(p + seed, vec2(127.1, 311.7))) * 43758.5453);
+}
+
+vec2 random2(vec2 p) {
+    return fract(sin(vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)))) * 43758.5453);
+}
+
+vec2 random2(vec3 p) {
+    return fract(sin(vec2(p.x, p.x + 1.0)) * vec2(43758.5453123, 22578.1459123));
 }
 
 float noise(vec2 st) {
@@ -86,14 +87,6 @@ vec3 rayCast() {
 	vec3 H = u_Right * length * (u_Dimensions.x / u_Dimensions.y) * tan(radians(90.0 / 2.0));
 	vec3 world = u_Ref + screenPos.x * H + screenPos.y * V;
 	return normalize(world - u_Eye);
-}
-
-float random1( vec2 p , vec2 seed) {
-  return fract(sin(dot(p + seed, vec2(127.1, 311.7))) * 43758.5453);
-}
-
-vec2 random2(vec2 p) {
-    return fract(sin(vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)))) * 43758.5453);
 }
 
 float interpNoise2D(float x, float y) {
@@ -257,6 +250,9 @@ float curtainNoise(vec3 pos, float t) {
 }
 
 vec4 generateSky() {
+	if (u_DayTime == 1.0) {
+		return vec4(102.0 / 256.0, 204.0 / 256.0, 1.0, 1.0);
+	}
     vec3 diffuseColor = vec3(0);
     float x = gl_FragCoord.x / 70.0; // scaled x coordinate of UV
     float y = gl_FragCoord.y / 50.0; // scaled y coordinate of UV
@@ -306,8 +302,6 @@ float sceneIntersect(vec3 currPos, out roomData rd) {
 	float barsL = opUnion(windowBarH, windowBarV);
 	float curtBoxL = sdBox(vec3(leftWallPos.x, leftWallPos.y - wallH / 2.0, leftWallPos.z), vec3(0.3, 0.2, 3.2));
 	float curtL = curtainNoise(leftWallPos, u_Time);
-	//leftWindow = opSmoothUnion(leftWindow, windowBarH, 0.3);
-	//float result = opSubtraction(leftWall, leftWindow);
 	leftWall = opSubtraction(leftWindow, leftWall);
 	leftWall = opUnion(leftWall, barsL);
 	leftWall = opUnion(leftWall, curtBoxL);
@@ -341,11 +335,11 @@ float sceneIntersect(vec3 currPos, out roomData rd) {
 	rd.nightstand = drawer;
 
 	// Construct the lamp
-	vec3 lampPos = vec3(currPos.x + 5.0, currPos.y + 1.75, currPos.z - 3.0);
+	vec3 lampPos = vec3(currPos.x + 5.0, currPos.y + 1.75, currPos.z - 2.8);
 	float Lbody = sdSphere(lampPos, 0.8);
 	float Lhead = sdRoundCone(vec3(lampPos.x, lampPos.y - 2.0, lampPos.z), 0.9, 0.4, 1.0);
 	float Lconnection = sdVerticalCapsule(vec3(lampPos.x, lampPos.y - 1.0, lampPos.z), 2.0, 0.1);
-	float lamp = min(opSmoothUnion(Lconnection, Lbody, 0.3), Lhead);
+	float lamp = opSmoothUnion(Lconnection, Lbody, 0.3);
 	rd.lamp = vec3(lampPos.x, lampPos.y - 2.0, lampPos.z);
 
 	// Right wall
@@ -360,8 +354,6 @@ float sceneIntersect(vec3 currPos, out roomData rd) {
 	rightWall = opSubtraction(rightWindow, rightWall);
 	rightWall = opUnion(rightWall, barsR);
 	rightWall = opUnion(rightWall, curtBoxR);
-	
-	//rd.rightWall = rightWall;
 
 	// Floor & ceiling
 	float floor = sdBox(vec3(rotWZ.x - wallH, rotWZ.y, rotWZ.z), vec3(0.1, wallWBack, wallWSides));
@@ -373,14 +365,11 @@ float sceneIntersect(vec3 currPos, out roomData rd) {
 	float walls = opSmoothUnion(backWall, leftWall, 0.3);
 	walls = opSmoothUnion(walls, rightWall, 0.3);
 	rd.walls = walls;
-	//float wall = sdPlane(currPos, normalize(vec4(0.2, 0.0, 0.0, 1.0)));
-	//float minDist = min(min(leftWall, backWall), rightWall);
 
-	rd.moon = vec3(currPos.x + 30.0, currPos.y - 5.0, currPos.z - 20.0);
+	rd.moon = vec3(currPos.x + cos(u_Time * 0.001) * 35.0, currPos.y + sin(u_Time * 0.001) * 35.0, currPos.z - 20.0); //- 20.0);
 	float moon = sdSphere(rd.moon, 3.0);
 
-
-	float minDist = min(min(min(min(min(min(min(min(walls, floor), headrest), ceiling), drawer), lamp), mattress), pic1), moon);
+	float minDist = min(min(min(min(min(min(min(min(min(walls, floor), headrest), ceiling), drawer), lamp), mattress), pic1), moon), Lhead);
 	rd.objectID = 0;
 		
 	if(minDist == rd.floor) {
@@ -409,7 +398,10 @@ float sceneIntersect(vec3 currPos, out roomData rd) {
 	}
 	if (minDist == moon) {
 		rd.objectID = 9;
+	} if (minDist == Lhead) {
+		rd.objectID = 10;
 	}
+	rd.finalPos = currPos;
 	return minDist;
 }
 
@@ -425,6 +417,52 @@ vec3 computeNormal(vec3 p) {
 	float zh = sceneIntersect(p + vec3(0.0, 0.0, 0.001), rd);
 
 	return normalize(vec3(xh - xl, yh - yl, zh - zl));
+}
+
+float softShadow(vec3 dir, vec3 origin, float min_t, float max_t, float k) {
+	roomData rd;
+	float res = 1.0;
+	for (float t = min_t; t < max_t;) {
+		float m = sceneIntersect(origin + t * dir, rd);
+		if (m < 0.00001) {
+			return 0.0; // in shadow
+		}
+		res = min(res, k * m / t);
+		t += m;
+	}
+	return res;
+}
+
+void coordinateSystem(const vec3 v1, out vec3 v2, out vec3 v3) {
+    
+    if (abs(v1.x) > abs(v1.y)) {
+        v2 = vec3(-v1.z, 0, v1.x) / length(v1.xz);
+    }
+    else {
+        v2 = vec3(0, v1.z, -v1.y) / length(v1.yz);
+    }
+    v3 = cross(v1, v2);
+}
+
+float computeAO(vec3 p, vec3 n, float dist) {
+    float aoSum = 0.0;
+    roomData rd;
+    // Sample a few points in the hemisphere around n at p
+    vec3 t, b;
+    // Make a tangent and bitangent vector
+    coordinateSystem(n, t, b);
+    for(int i = 0; i < 250; ++i) {
+        // Generate a pair of random [0, 1] floats
+        vec2 xi = random2(p + float(i) * 203.1);
+        // Convert the xi pair to a vector in the hemisphere
+        float len = sqrt(xi.y);
+        float rx = len * cos(6.2831 * xi.x);
+        float ry = len * sin(6.2831 * xi.x);
+        float rz = sqrt(1.0 - xi.y); // z = sqrt(1 - x*x - y*y)
+        vec3 dir = vec3(rx * t + ry * b + rz * n);
+        aoSum += step(0.0, sceneIntersect(p + dir * dist , rd));
+    }
+    return aoSum / float(256);
 }
 
 void main() {
@@ -448,13 +486,16 @@ void main() {
 
 	vec3 surfaceNormal = computeNormal(pos);
 	
-	vec3 fs_LightVec1 = normalize(rd.moon - pos);
-	vec3 fs_LightVec2 = normalize(rd.lamp - pos);
+	vec3 fs_LightVec1 = normalize(-rd.moon - pos);
+	vec3 fs_LightVec2 = normalize(u_Eye - pos);
 	float diffuseTerm1 = dot(normalize(surfaceNormal.xyz), normalize(fs_LightVec1));
 	float diffuseTerm2 = dot(normalize(surfaceNormal.xyz), normalize(fs_LightVec2));
     diffuseTerm1 = clamp(diffuseTerm1, 0.0, 1.0);
     diffuseTerm2 = clamp(diffuseTerm2, 0.0, 1.0);
-    float ambientTerm = 0.05;
+    float ambientTerm = 0.15;
+    if (u_DayTime == 1.0) {
+    	ambientTerm = 0.6;
+    }
     float specularIntensity1 = max(pow(dot(normalize(fs_LightVec1), normalize(surfaceNormal.xyz)), 30.0), 0.0);
     float specularIntensity2 = max(pow(dot(normalize(fs_LightVec2), normalize(surfaceNormal.xyz)), 30.0), 0.0);
     float specularIntensity = (specularIntensity1 + specularIntensity2) / 2.0;
@@ -465,7 +506,6 @@ void main() {
 	if(hitAThing) {
 		if (rd.objectID == 1) {
 			out_Col = vec4(0.4 * fbm(abs(gl_FragCoord.x), abs(gl_FragCoord.y), 2.0), 0.15, 0.4 * fbm(abs(gl_FragCoord.x), abs(gl_FragCoord.y), 6.0), 1.0);
-			//out_Col = vec4(out_Col * lightIntensity + specularIntensity);
 		} else if (rd.objectID == 2) {
 			out_Col = vec4(0.0, 0.0, 0.0, 1.0);
 		} else if (rd.objectID == 3) {
@@ -482,7 +522,7 @@ void main() {
 		} else if (rd.objectID == 5) {
 			out_Col = vec4(0.0, 0.0, 1.0, 1.0);
 		} else if (rd.objectID == 6) {
-			out_Col = vec4(1.0, 0.0, 0.0, 1.0);
+			out_Col = vec4(0.7, 0.7, 0.7, 1.0);
 		} else if (rd.objectID == 7) {
 			vec2 st = gl_FragCoord.xy/u_Dimensions.xy;
     		vec3 color = vec3(0.0);
@@ -496,19 +536,41 @@ void main() {
     		pattern = lines(pos, .2);
     		out_Col = vec4(vec3(0.0, 0.5 * pattern, 0.7 * pattern), 1.0);
 		} else if (rd.objectID == 9) {
-			out_Col = vec4(vec3(0.8 * fbm(abs(gl_FragCoord.x), abs(gl_FragCoord.y), 2.0)), 1.0);
+			if (u_DayTime == 1.0) {
+				out_Col = vec4(1.0, 1.0, 0.0, 1.0);
+			} else {
+				out_Col = vec4(vec3(0.8 * fbm(abs(gl_FragCoord.x), abs(gl_FragCoord.y), 2.0)), 1.0);
+			}
+		} else if (rd.objectID == 10) {
+			out_Col = vec4(1.0, 0.7, 1.0, 1.0);
 		}
-		out_Col = vec4(out_Col.xyz * lightIntensity + specularIntensity, 1.0);
+		vec3 shadow1 = vec3(softShadow(fs_LightVec1, pos, 0.1, 0.5, 3.0));
+		vec3 shadow2 = vec3(softShadow(fs_LightVec2, pos, 0.1, 0.5, 3.0));
+		vec4 coloredShadow1 = vec4(out_Col.xyz * shadow1, 1.0);
+		vec4 coloredShadow2 = vec4(out_Col.xyz * shadow2, 1.0);
+		vec4 coloredShadow = (coloredShadow1 + coloredShadow2) / 2.0;
+		out_Col = vec4(out_Col.xyz * lightIntensity + specularIntensity, 1.0) * coloredShadow;
+		if (u_AO > 0.0) {
+			float ao = computeAO(pos, surfaceNormal, 0.5);
+			out_Col *= ao;
+		}
 	}
 	else {
 		out_Col = generateSky();
-
 		// distance fog
 		float dist = length(vec4(fs_Pos.x, 0.0, 10.0, 0.0) - vec4(u_Eye, 0.0));
         vec3 fogColor = vec3(0.5, 0.5, 0.5) * sin(u_Time * 0.01);
         float fogFactor = (25.0 - dist)/(10.0);
         fogFactor = clamp(fogFactor, 0.0, 1.0);
         out_Col = vec4(mix(fogColor, out_Col.rgb, fogFactor), 1.0);
-
 	}
+	float distanceX = abs(gl_FragCoord.x / u_Dimensions.x - 0.5); // x-distance
+    float distanceY = abs(gl_FragCoord.y / u_Dimensions.y - 0.5); // y-distance
+    float distanceTotal = sqrt(distanceX * distanceX + distanceY * distanceY); // distance from screen center
+    float actualDistance = distanceTotal - 0.3; // subtract the ellipse radius
+    if (actualDistance > 0.0) {
+        out_Col = vec4(vec3(clamp(out_Col.r - actualDistance, 0.0, out_Col.r), 
+        	clamp(out_Col.g - actualDistance, 0.0, out_Col.g), 
+        	clamp(out_Col.b - actualDistance, 0.0, out_Col.b)), 1.0);
+    }
 }

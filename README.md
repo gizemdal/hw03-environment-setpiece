@@ -20,3 +20,10 @@ For this project, I aimed to visualize a simple bedroom scene with a chair, a tw
 
 Features & Techniques:
 
+Animation of the Environment Elements: I imitated a day cycle by having a spherical SDF primitive that would perform a circular motion around the bedroom, where the sphere would have a "moon" texture and color during nighttime and a "sun" color during daytime. Another animation I included, although it is very subtle, is the color of the stars of the night sky, where their colors shift between yellow and white as a function of elapsed time.
+
+Use of Noise Functions: I incorporated the use of several noise functions mainly for texturing purposes for this environment setting. These include Fractal Brownian Motion (for the purple carpet and the moon texture), Worley noise (for the night sky) and other alterations of the general noise functions that would take in a value pair and map them to seemingly random values. Noise-generated textures include the wood texture of the bed frame and the chair, the two pictures on the wall, the carpet and the moon.
+
+Toolbox functions: I used several toolbox functions such as Square Wave, Sin and Cosine to generate textures as well as object movements. For instance, I made use of the Square Wave function to get the striped texture of the wallpaper, while I used Sin and Cosine in noise functions as well as for the circular motion of the moon/sun.
+
+SDF Based Soft Shadows: I implemented the Penumbra Shadows, discussed by Inigo Quilez at https://iquilezles.org/www/articles/rmshadows/rmshadows.htm

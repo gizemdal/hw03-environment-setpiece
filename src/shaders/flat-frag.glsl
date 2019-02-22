@@ -248,13 +248,6 @@ vec3 simplexGrid (vec2 st) {
     return fract(xyz);
 }
 
-float curtainNoise(vec3 pos, float t) {
-	vec3 noisePos = vec3(pos.x + sin(t * 0.1), pos.y, pos.z);
-	float actual = sdBox(noisePos, vec3(0.1, 4.0, 0.5));
-	//actual = sin(t * 0.01) * actual;
-	return actual;
-}
-
 vec4 generateSky() {
 	if (u_DayTime == 1.0) {
 		return vec4(102.0 / 256.0, 204.0 / 256.0, 1.0, 1.0);
@@ -307,7 +300,6 @@ float sceneIntersect(vec3 currPos, out roomData rd) {
 	float windowBarV = sdBox(leftWallPos, vec3(0.1, 3.0, 0.2)); // vertical bar
 	float barsL = opUnion(windowBarH, windowBarV);
 	float curtBoxL = sdBox(vec3(leftWallPos.x, leftWallPos.y - wallH / 2.0, leftWallPos.z), vec3(0.3, 0.2, 3.2));
-	float curtL = curtainNoise(leftWallPos, u_Time);
 	leftWall = opSubtraction(leftWindow, leftWall);
 	leftWall = opUnion(leftWall, barsL);
 	leftWall = opUnion(leftWall, curtBoxL);
@@ -457,7 +449,6 @@ float sceneMoon(vec3 currPos, out roomData rd) {
 	float windowBarV = sdBox(leftWallPos, vec3(0.1, 3.0, 0.2)); // vertical bar
 	float barsL = opUnion(windowBarH, windowBarV);
 	float curtBoxL = sdBox(vec3(leftWallPos.x, leftWallPos.y - wallH / 2.0, leftWallPos.z), vec3(0.3, 0.2, 3.2));
-	float curtL = curtainNoise(leftWallPos, u_Time);
 	leftWall = opSubtraction(leftWindow, leftWall);
 	leftWall = opUnion(leftWall, barsL);
 	leftWall = opUnion(leftWall, curtBoxL);
@@ -620,8 +611,8 @@ void main() {
 
 	vec3 pos = u_Eye + t * rayDir;
 	vec3 surfaceNormal = computeNormal(pos);
-	vec3 keyLight = vec3(4.0, 5.0, -10.0);
-	vec3 fillLight = vec3(-4.0, 5.0, -10.0);
+	vec3 keyLight = vec3(-9.0, 4.0, -14.0);
+	vec3 fillLight = vec3(9.0, 4.0, -14.0);
 
 	vec3 fs_LightVec1 = normalize(-rd.moon - pos);
 	vec3 fs_LightVec2 = normalize(keyLight - pos);
@@ -632,22 +623,22 @@ void main() {
     diffuseTerm1 = clamp(diffuseTerm1, 0.0, 1.0);
     diffuseTerm2 = clamp(diffuseTerm2, 0.0, 1.0);
     diffuseTerm3 = clamp(diffuseTerm3, 0.0, 1.0);
-    float ambientTerm1 = 0.15;
-    float ambientTerm2 = 0.6;
-    float ambientTerm3 = 0.3;
+    float ambientTerm1 = 0.1;
+    float ambientTerm2 = 0.2;
+    float ambientTerm3 = 0.2;
     if (u_DayTime == 1.0) {
-    	ambientTerm1 = 0.6;
-    	ambientTerm2 = 0.15;
-    	ambientTerm3 = 0.15;
+    	ambientTerm1 = 0.4;
+    	ambientTerm2 = 0.1;
+    	ambientTerm3 = 0.1;
     }
     float specularIntensity1 = max(pow(dot(normalize(fs_LightVec1), normalize(surfaceNormal.xyz)), 30.0), 0.0);
     float specularIntensity2 = max(pow(dot(normalize(fs_LightVec2), normalize(surfaceNormal.xyz)), 30.0), 0.0);
     float specularIntensity3 = max(pow(dot(normalize(fs_LightVec3), normalize(surfaceNormal.xyz)), 30.0), 0.0);
-    float specularIntensity = (specularIntensity1 + specularIntensity2 + specularIntensity3) / 3.0;
+    float specularIntensity = (specularIntensity1 + specularIntensity2 + specularIntensity3);
     float lightIntensity1 = diffuseTerm1 + ambientTerm1;
     float lightIntensity2 = diffuseTerm2 + ambientTerm2;
     float lightIntensity3 = diffuseTerm3 + ambientTerm3;
-    float lightIntensity = (lightIntensity1 + lightIntensity2 + lightIntensity3) / 3.0;
+    float lightIntensity = (lightIntensity1 + lightIntensity2 + lightIntensity3);
 
 	if(hitAThing) {
 		if (rd.objectID == 1) {
@@ -672,8 +663,8 @@ void main() {
 		} else if (rd.objectID == 7) {
 			vec2 st = gl_FragCoord.xy/u_Dimensions.xy;
     		vec3 color = vec3(0.0);
-    		st *= 100.;
-    		color.rb = fract(st);
+    		st *= 150.;
+    		color.rb = 0.7 * fract(st);
     		out_Col = vec4(color,1.0);
 		} else if (rd.objectID == 8) {
 			vec2 pos = fs_Pos.yx * vec2(5.,7.);
@@ -696,8 +687,9 @@ void main() {
 		vec4 coloredShadow1 = vec4(out_Col.xyz * shadow1, 1.0);
 		vec4 coloredShadow2 = vec4(out_Col.xyz * shadow2, 1.0);
 		vec4 coloredShadow3 = vec4(out_Col.xyz * shadow3, 1.0);
-		vec4 coloredShadow = (coloredShadow1 + coloredShadow2 + coloredShadow3) / 3.0;
+		vec4 coloredShadow = (coloredShadow1 + coloredShadow2 + coloredShadow3);
 		out_Col = vec4(out_Col.xyz * lightIntensity + specularIntensity, 1.0) * coloredShadow;
+		out_Col = out_Col / 3.0;
 		if (u_AO > 0.0) {
 			float ao = computeAO(pos, surfaceNormal, 0.2);
 			out_Col *= ao;

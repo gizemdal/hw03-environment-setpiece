@@ -26,4 +26,13 @@ Use of Noise Functions: I incorporated the use of several noise functions mainly
 
 Toolbox functions: I used several toolbox functions such as Square Wave, Sin and Cosine to generate textures as well as object movements. For instance, I made use of the Square Wave function to get the striped texture of the wallpaper, while I used Sin and Cosine in noise functions as well as for the circular motion of the moon/sun.
 
-SDF Based Soft Shadows: I implemented the Penumbra Shadows, discussed by Inigo Quilez at https://iquilezles.org/www/articles/rmshadows/rmshadows.htm
+SDF Based Soft Shadows: I implemented the Penumbra Shadows, discussed by Inigo Quilez at https://iquilezles.org/www/articles/rmshadows/rmshadows.htm to make my light sources create shadows in the scene. In order to have not completely black shadows, I incorporated the color of the objects in the shadow as well.
+
+Environmental Lighting from Light Sources & Ambient Occlusion: I have three light sources in the scene: one is the moon/sun and the other two are static key and fill lights. Incorporating a dynamic light source helped me get more interesting shadows (since they would shift orientation as the moon revolves around). However, having two other static light sources helped me maintain a well-lit room such that the illumination wouldn't be only dependent on the moon. I also incorporated Ambient Occlusion to my scene, which I believe has a very cool effect on how the ojects look. I made this effect optional by adding a tick-box to my options menu where you can turn the AO effect on/off and observe the scene in two different ways.
+
+Vignette: I believe that vignettes have a very dramatic and sensational impact on scenes, so I said "Why not?" and included one in my scene. The vignette has an effect on the fragments that are far from the center of the screen by a certain hard-coded amount. (Note: The vignette effect is diabled if the ambient occlusion effect is enabled.)
+
+SDF Blending: Using SDF blending functions such as union and subtraction helped me create way more interestingly shaped and sophisticated objects in my scene. For instance, the wooden chair is made of the smooth union of a rounded rectangular box, rounded cylinder and multiple vertical capsules. The subtraction function helped me build windows on the walls by subtracting
+my window area from the wall.
+
+Raymarched Scene: As described in the previous sections, raymarching was the main and most vital technique in the creation of this scene, from creating all the furniture to implementing soft shadows.

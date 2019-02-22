@@ -611,8 +611,8 @@ void main() {
 
 	vec3 pos = u_Eye + t * rayDir;
 	vec3 surfaceNormal = computeNormal(pos);
-	vec3 keyLight = vec3(-9.0, 4.0, -14.0);
-	vec3 fillLight = vec3(9.0, 4.0, -14.0);
+	vec3 keyLight = vec3(-6.0, 3.0, -4.0);
+	vec3 fillLight = vec3(6.0, 3.0, -4.0);
 
 	vec3 fs_LightVec1 = normalize(-rd.moon - pos);
 	vec3 fs_LightVec2 = normalize(keyLight - pos);
@@ -638,7 +638,7 @@ void main() {
     float lightIntensity1 = diffuseTerm1 + ambientTerm1;
     float lightIntensity2 = diffuseTerm2 + ambientTerm2;
     float lightIntensity3 = diffuseTerm3 + ambientTerm3;
-    float lightIntensity = (lightIntensity1 + lightIntensity2 + lightIntensity3);
+    float lightIntensity = (lightIntensity1 + lightIntensity2 + lightIntensity3 / 1.5);
 
 	if(hitAThing) {
 		if (rd.objectID == 1) {

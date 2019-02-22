@@ -135,6 +135,12 @@ float sdSphere( vec3 p, float s )
   return length(p)-s;
 }
 
+float sdRoundedCylinder( vec3 p, float ra, float rb, float h )
+{
+    vec2 d = vec2( length(p.xz)-2.0*ra+rb, abs(p.y) - h );
+    return min(max(d.x,d.y),0.0) + length(max(d,0.0)) - rb;
+}
+
 float sdVerticalCapsule( vec3 p, float h, float r )
 {
     p.y -= clamp( p.y, 0.0, h );
@@ -361,15 +367,45 @@ float sceneIntersect(vec3 currPos, out roomData rd) {
 	rd.floor = floor;
 	rd.ceiling = ceiling;
 
+	// Chair
+	vec3 chairPos = vec3(currPos.x - 7.0, currPos.y + 4.0, currPos.z - 2.0);
+	chairPos = (rotateY(-0.7) * vec4(chairPos, 1.0)).xyz;
+	float chairBottom = sdRoundedCylinder(chairPos, 0.45, 0.15, 0.10);
+	vec3 rotChairL1 =  (rotateZ(0.2) * rotateX(0.2) * vec4(chairPos, 1.0)).xyz;
+	vec3 chairL1Pos = vec3(rotChairL1.x - 0.4, rotChairL1.y + 2.0, rotChairL1.z + 0.4);
+	float chairL1 = sdVerticalCapsule(chairL1Pos, 1.75, 0.125);
+
+	vec3 rotChairL2 =  (rotateZ(0.2) * rotateX(-0.2) * vec4(chairPos, 1.0)).xyz;
+	vec3 chairL2Pos = vec3(rotChairL2.x - 0.4, rotChairL2.y + 2.0, rotChairL2.z - 0.4);
+	float chairL2 = sdVerticalCapsule(chairL2Pos, 1.75, 0.125);
+	
+	vec3 rotChairR1 =  (rotateZ(-0.2) * rotateX(0.2) * vec4(chairPos, 1.0)).xyz;
+	vec3 chairR1Pos = vec3(rotChairR1.x + 0.4, rotChairR1.y + 2.0, rotChairR1.z + 0.4);
+	float chairR1 = sdVerticalCapsule(chairR1Pos, 1.75, 0.125);
+	
+	vec3 rotChairR2 =  (rotateZ(-0.2) * rotateX(-0.2) * vec4(chairPos, 1.0)).xyz;
+	vec3 chairR2Pos = vec3(rotChairR2.x + 0.4, rotChairR2.y + 2.0, rotChairR2.z - 0.4);
+	float chairR2 = sdVerticalCapsule(chairR2Pos, 1.75, 0.125);
+
+	vec3 rotChairBack = (rotateZ(-0.2) * vec4(chairPos, 1.0)).xyz;
+	float chairBack = sdRoundBox(vec3(rotChairBack.x - 0.5, rotChairBack.y - 1.2, rotChairBack.z), vec3(0.001, 0.7, 0.5), 0.2);
+	chairL1 = opSmoothUnion(chairL1, chairL2, 0.2);
+	chairR1 = opSmoothUnion(chairR1, chairR2, 0.2);
+	chairL1 = opSmoothUnion(chairL1, chairR1, 0.2);
+
+	chairBottom = opSmoothUnion(chairBottom, chairL1, 0.2);
+	chairBottom = opSmoothUnion(chairBottom, chairBack, 0.2);
+
 	// Merge the walls
 	float walls = opSmoothUnion(backWall, leftWall, 0.3);
 	walls = opSmoothUnion(walls, rightWall, 0.3);
 	rd.walls = walls;
 
-	rd.moon = vec3(currPos.x + cos(u_Time * 0.001) * 35.0, currPos.y + sin(u_Time * 0.001) * 35.0, currPos.z - 20.0); //- 20.0);
+	rd.moon = vec3(currPos.x + cos(u_Time * 0.01) * 35.0, currPos.y + sin(u_Time * 0.01) * 35.0, currPos.z - 20.0); //- 20.0);
 	float moon = sdSphere(rd.moon, 3.0);
 
-	float minDist = min(min(min(min(min(min(min(min(min(walls, floor), headrest), ceiling), drawer), lamp), mattress), pic1), moon), Lhead);
+	float minDist = min(min(min(min(min(min(min(min(min(min(walls, floor), 
+		headrest), ceiling), drawer), lamp), mattress), pic1), moon), Lhead), chairBottom);
 	rd.objectID = 0;
 		
 	if(minDist == rd.floor) {
@@ -400,7 +436,93 @@ float sceneIntersect(vec3 currPos, out roomData rd) {
 		rd.objectID = 9;
 	} if (minDist == Lhead) {
 		rd.objectID = 10;
+	} if (minDist == chairBottom) {
+		rd.objectID = 11;
 	}
+	rd.finalPos = currPos;
+	return minDist;
+}
+
+float sceneMoon(vec3 currPos, out roomData rd) {
+
+	float wallH = 6.0; // wall height
+	float wallWSides = 6.0; // wall width sides
+	float wallWBack = 10.0; // wall width back
+
+	// Left wall
+	vec3 leftWallPos = vec3(currPos.x - wallWBack, currPos.y, currPos.z);
+	float leftWall = sdBox(leftWallPos, vec3(0.1, wallH, wallWSides));
+	float leftWindow = sdBox(leftWallPos, vec3(0.2, 3.0, 3.0));
+	float windowBarH = sdBox(leftWallPos, vec3(0.1, 0.2, 3.0)); // horizontal bar
+	float windowBarV = sdBox(leftWallPos, vec3(0.1, 3.0, 0.2)); // vertical bar
+	float barsL = opUnion(windowBarH, windowBarV);
+	float curtBoxL = sdBox(vec3(leftWallPos.x, leftWallPos.y - wallH / 2.0, leftWallPos.z), vec3(0.3, 0.2, 3.2));
+	float curtL = curtainNoise(leftWallPos, u_Time);
+	leftWall = opSubtraction(leftWindow, leftWall);
+	leftWall = opUnion(leftWall, barsL);
+	leftWall = opUnion(leftWall, curtBoxL);
+
+	// Back wall
+	vec3 rotWY = (rotateY(-1.575) * vec4(currPos, 1.0)).xyz;
+	vec3 backWallPos = vec3(rotWY.x - wallWSides, rotWY.y, rotWY.z);
+	float backWall = sdBox(backWallPos, vec3(0.1, wallH, wallWBack));
+	float pic1 = sdBox(vec3(backWallPos.x + 0.5, backWallPos.y - 3.0, backWallPos.z), vec3(0.1, 1.5, 2.0));
+	float pic2 = sdBox(vec3(backWallPos.x + 0.5, backWallPos.y, backWallPos.z + 6.0), vec3(0.1, 3.0, 1.0));
+	pic1 = min(pic1, pic2);
+	//rd.backWall = backWall;
+
+	// Construct the bed frame
+	float headrest = sdBox(vec3(rotWY.x - 4.0, rotWY.y + 1.5, rotWY.z), vec3(0.1, 2.5, 3.0));
+	float footLB = sdBox(vec3(rotWY.x - 3.0, rotWY.y + 5.5, rotWY.z + 2.0), vec3(0.3, 0.5, 0.3));
+	float footLF = sdBox(vec3(rotWY.x + 3.5, rotWY.y + 5.5, rotWY.z + 2.0), vec3(0.3, 0.5, 0.3));
+	float footRB = sdBox(vec3(rotWY.x - 3.0, rotWY.y + 5.5, rotWY.z - 2.0), vec3(0.3, 0.5, 0.3));
+	float footRF = sdBox(vec3(rotWY.x + 3.5, rotWY.y + 5.5, rotWY.z - 2.0), vec3(0.3, 0.5, 0.3));
+	headrest = min(min(min(min(headrest, footLB), footRB), footLF), footRF);
+	vec3 rotWZ = (rotateZ(-1.575) * vec4(currPos, 1.0)).xyz;
+	float bed = sdBox(vec3(rotWZ.x - 4.5, rotWZ.y, rotWZ.z), vec3(0.5, 3.0, 4.5));
+	headrest = opSmoothUnion(headrest, bed, 0.3);
+	rd.bedFrame = headrest;
+
+	float mattress = sdRoundBox(vec3(rotWZ.x - 3.5, rotWZ.y, rotWZ.z + 0.8), vec3(0.5, 2.8, 4.3), 0.3);
+	rd.mattress = mattress;
+
+	// Construct the nightstand
+	float drawer = sdBox(vec3(currPos.x + 5.0, currPos.y + 4.0, currPos.z - 3.0), vec3(1.5, 1.5, 1.3));
+	rd.nightstand = drawer;
+
+	// Construct the lamp
+	vec3 lampPos = vec3(currPos.x + 5.0, currPos.y + 1.75, currPos.z - 2.8);
+	float Lbody = sdSphere(lampPos, 0.8);
+	float Lhead = sdRoundCone(vec3(lampPos.x, lampPos.y - 2.0, lampPos.z), 0.9, 0.4, 1.0);
+	float Lconnection = sdVerticalCapsule(vec3(lampPos.x, lampPos.y - 1.0, lampPos.z), 2.0, 0.1);
+	float lamp = opSmoothUnion(Lconnection, Lbody, 0.3);
+	rd.lamp = vec3(lampPos.x, lampPos.y - 2.0, lampPos.z);
+
+	// Right wall
+	rotWY = (rotateY(-1.575) * vec4(rotWY, 1.0)).xyz;
+	vec3 rightWallPos = vec3(rotWY.x - wallWBack, rotWY.y, rotWY.z);
+	float rightWall = sdBox(rightWallPos, vec3(0.1, wallH, wallWSides));
+	float rightWindow = sdBox(rightWallPos, vec3(0.2, 3.0, 3.0));
+	windowBarH = sdBox(rightWallPos, vec3(0.1, 0.2, 3.0)); // horizontal bar
+	windowBarV = sdBox(rightWallPos, vec3(0.1, 3.0, 0.2)); // vertical bar
+	float curtBoxR = sdBox(vec3(rightWallPos.x, rightWallPos.y - wallH / 2.0, rightWallPos.z), vec3(0.3, 0.2, 3.2));
+	float barsR = opUnion(windowBarH, windowBarV);
+	rightWall = opSubtraction(rightWindow, rightWall);
+	rightWall = opUnion(rightWall, barsR);
+	rightWall = opUnion(rightWall, curtBoxR);
+
+	// Floor & ceiling
+	float floor = sdBox(vec3(rotWZ.x - wallH, rotWZ.y, rotWZ.z), vec3(0.1, wallWBack, wallWSides));
+	float ceiling = sdBox(vec3(rotWZ.x + wallH, rotWZ.y, rotWZ.z), vec3(0.1, wallWBack, wallWSides));
+	rd.floor = floor;
+	rd.ceiling = ceiling;
+
+	// Merge the walls
+	float walls = opSmoothUnion(backWall, leftWall, 0.3);
+	walls = opSmoothUnion(walls, rightWall, 0.3);
+	rd.walls = walls;
+
+	float minDist = min(min(min(min(min(min(min(min(walls, floor), headrest), ceiling), drawer), lamp), mattress), pic1), Lhead);
 	rd.finalPos = currPos;
 	return minDist;
 }
@@ -424,7 +546,21 @@ float softShadow(vec3 dir, vec3 origin, float min_t, float max_t, float k) {
 	float res = 1.0;
 	for (float t = min_t; t < max_t;) {
 		float m = sceneIntersect(origin + t * dir, rd);
-		if (m < 0.00001) {
+		if (m < 0.001) {
+			return 0.0; // in shadow
+		}
+		res = min(res, k * m / t);
+		t += m;
+	}
+	return res;
+}
+
+float moonShadow(vec3 dir, vec3 origin, float min_t, float max_t, float k) {
+	roomData rd;
+	float res = 1.0;
+	for (float t = min_t; t < max_t;) {
+		float m = sceneMoon(origin + t * dir, rd);
+		if (m < 0.001) {
 			return 0.0; // in shadow
 		}
 		res = min(res, k * m / t);
@@ -483,25 +619,35 @@ void main() {
 	}
 
 	vec3 pos = u_Eye + t * rayDir;
-
 	vec3 surfaceNormal = computeNormal(pos);
-	
+	vec3 keyLight = vec3(4.0, 5.0, -10.0);
+	vec3 fillLight = vec3(-4.0, 5.0, -10.0);
+
 	vec3 fs_LightVec1 = normalize(-rd.moon - pos);
-	vec3 fs_LightVec2 = normalize(u_Eye - pos);
+	vec3 fs_LightVec2 = normalize(keyLight - pos);
+	vec3 fs_LightVec3 = normalize(fillLight - pos);
 	float diffuseTerm1 = dot(normalize(surfaceNormal.xyz), normalize(fs_LightVec1));
 	float diffuseTerm2 = dot(normalize(surfaceNormal.xyz), normalize(fs_LightVec2));
+	float diffuseTerm3 = dot(normalize(surfaceNormal.xyz), normalize(fs_LightVec3));
     diffuseTerm1 = clamp(diffuseTerm1, 0.0, 1.0);
     diffuseTerm2 = clamp(diffuseTerm2, 0.0, 1.0);
-    float ambientTerm = 0.15;
+    diffuseTerm3 = clamp(diffuseTerm3, 0.0, 1.0);
+    float ambientTerm1 = 0.15;
+    float ambientTerm2 = 0.6;
+    float ambientTerm3 = 0.3;
     if (u_DayTime == 1.0) {
-    	ambientTerm = 0.6;
+    	ambientTerm1 = 0.6;
+    	ambientTerm2 = 0.15;
+    	ambientTerm3 = 0.15;
     }
     float specularIntensity1 = max(pow(dot(normalize(fs_LightVec1), normalize(surfaceNormal.xyz)), 30.0), 0.0);
     float specularIntensity2 = max(pow(dot(normalize(fs_LightVec2), normalize(surfaceNormal.xyz)), 30.0), 0.0);
-    float specularIntensity = (specularIntensity1 + specularIntensity2) / 2.0;
-    float lightIntensity1 = diffuseTerm1 + ambientTerm;
-    float lightIntensity2 = diffuseTerm2 + ambientTerm;
-    float lightIntensity = (lightIntensity1 + lightIntensity2) / 2.0;
+    float specularIntensity3 = max(pow(dot(normalize(fs_LightVec3), normalize(surfaceNormal.xyz)), 30.0), 0.0);
+    float specularIntensity = (specularIntensity1 + specularIntensity2 + specularIntensity3) / 3.0;
+    float lightIntensity1 = diffuseTerm1 + ambientTerm1;
+    float lightIntensity2 = diffuseTerm2 + ambientTerm2;
+    float lightIntensity3 = diffuseTerm3 + ambientTerm3;
+    float lightIntensity = (lightIntensity1 + lightIntensity2 + lightIntensity3) / 3.0;
 
 	if(hitAThing) {
 		if (rd.objectID == 1) {
@@ -511,7 +657,7 @@ void main() {
 		} else if (rd.objectID == 3) {
 			float c = square_wave(gl_FragCoord.x, 0.8, 0.5);
 			out_Col = vec4(vec3(215.0/ 256.0 * c, 175.0/ 256.0 * c, 224.0/ 256.0 * c), 1.0);
-		} else if (rd.objectID == 4) {
+		} else if (rd.objectID == 4 || rd.objectID == 11) {
 			vec2 st = gl_FragCoord.xy / u_Dimensions.xy;
 			st.y *= u_Dimensions.y / u_Dimensions.x;
 			vec2 pos = st.yx * vec2(20., 20.);
@@ -544,33 +690,32 @@ void main() {
 		} else if (rd.objectID == 10) {
 			out_Col = vec4(1.0, 0.7, 1.0, 1.0);
 		}
-		vec3 shadow1 = vec3(softShadow(fs_LightVec1, pos, 0.1, 0.5, 3.0));
-		vec3 shadow2 = vec3(softShadow(fs_LightVec2, pos, 0.1, 0.5, 3.0));
+		vec3 shadow1 = vec3(moonShadow(fs_LightVec1, pos, 0.1, 0.4, 3.0));
+		vec3 shadow2 = vec3(softShadow(fs_LightVec2, pos, 0.1, 0.4, 3.0));
+		vec3 shadow3 = vec3(softShadow(fs_LightVec3, pos, 0.1, 0.4, 3.0));
 		vec4 coloredShadow1 = vec4(out_Col.xyz * shadow1, 1.0);
 		vec4 coloredShadow2 = vec4(out_Col.xyz * shadow2, 1.0);
-		vec4 coloredShadow = (coloredShadow1 + coloredShadow2) / 2.0;
+		vec4 coloredShadow3 = vec4(out_Col.xyz * shadow3, 1.0);
+		vec4 coloredShadow = (coloredShadow1 + coloredShadow2 + coloredShadow3) / 3.0;
 		out_Col = vec4(out_Col.xyz * lightIntensity + specularIntensity, 1.0) * coloredShadow;
 		if (u_AO > 0.0) {
-			float ao = computeAO(pos, surfaceNormal, 0.5);
+			float ao = computeAO(pos, surfaceNormal, 0.2);
 			out_Col *= ao;
 		}
 	}
 	else {
 		out_Col = generateSky();
-		// distance fog
-		float dist = length(vec4(fs_Pos.x, 0.0, 10.0, 0.0) - vec4(u_Eye, 0.0));
-        vec3 fogColor = vec3(0.5, 0.5, 0.5) * sin(u_Time * 0.01);
-        float fogFactor = (25.0 - dist)/(10.0);
-        fogFactor = clamp(fogFactor, 0.0, 1.0);
-        out_Col = vec4(mix(fogColor, out_Col.rgb, fogFactor), 1.0);
 	}
-	float distanceX = abs(gl_FragCoord.x / u_Dimensions.x - 0.5); // x-distance
-    float distanceY = abs(gl_FragCoord.y / u_Dimensions.y - 0.5); // y-distance
-    float distanceTotal = sqrt(distanceX * distanceX + distanceY * distanceY); // distance from screen center
-    float actualDistance = distanceTotal - 0.3; // subtract the ellipse radius
-    if (actualDistance > 0.0) {
-        out_Col = vec4(vec3(clamp(out_Col.r - actualDistance, 0.0, out_Col.r), 
+	if (u_AO == 0.0) {
+		// vignette effect
+		float distanceX = abs(gl_FragCoord.x / u_Dimensions.x - 0.5); // x-distance
+    	float distanceY = abs(gl_FragCoord.y / u_Dimensions.y - 0.5); // y-distance
+    	float distanceTotal = sqrt(distanceX * distanceX + distanceY * distanceY); // distance from screen center
+    	float actualDistance = distanceTotal - 0.3; // subtract the ellipse radius
+    	if (actualDistance > 0.0) {
+        	out_Col = vec4(vec3(clamp(out_Col.r - actualDistance, 0.0, out_Col.r), 
         	clamp(out_Col.g - actualDistance, 0.0, out_Col.g), 
         	clamp(out_Col.b - actualDistance, 0.0, out_Col.b)), 1.0);
-    }
+    	}
+	}
 }

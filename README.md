@@ -36,3 +36,35 @@ SDF Blending: Using SDF blending functions such as union and subtraction helped 
 my window area from the wall.
 
 Raymarched Scene: As described in the previous sections, raymarching was the main and most vital technique in the creation of this scene, from creating all the furniture to implementing soft shadows.
+
+Progress Images:
+
+I captures a couple screenshots of my environment scene as I implemented my features. This should give you a better idea of how the scene looks under different circumstances (such as the differences between night time and day time, AO effect enabled/disabled).
+
+The Bedroom (With darker lights):
+
+![Initial](progress_imgs/dark.png)
+
+The Bedroom w/ Ambient Occlusion enabled:
+
+![AO](progress_imgs/AO.png)
+
+Morning:
+
+![Morning](progress_imgs/morning.png)
+
+Moon as the Only Light Source:
+
+![Moon](progress_imgs/only_moon.png)
+
+Static Lights as the Only Light Source:
+
+![Static](progress_imgs/only_static.png)
+
+No Texture:
+
+![No texture](progress_imgs/no_texture.png)
+
+Without Any Shadows, Lambertian and Specular Effects:
+
+![Flat](progress_imgs/flat.png)
